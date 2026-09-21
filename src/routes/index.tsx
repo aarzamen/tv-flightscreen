@@ -206,6 +206,49 @@ function Home() {
     };
   }, [origin.lat, origin.lon, settings.radiusNm, settings.overlays.roadTraffic]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    (window as any).tvBridge = {
+      snapHome: () => {
+        mapRef.current?.flyTo(origin.lat, origin.lon);
+      },
+      pan: (dx: number, dy: number) => {
+        (window as any)._leafletMap?.panBy?.([dx, dy]);
+      },
+      zoomIn: () => {
+        mapRef.current?.zoomIn();
+      },
+      zoomOut: () => {
+        mapRef.current?.zoomOut();
+      },
+      selectNext: () => {
+        const list = traffic?.aircraft ?? [];
+        if (!list.length) return;
+        const currIdx = list.findIndex((a) => a.hex === selectedHex);
+        const next = list[(currIdx + 1) % list.length];
+        if (next) setSelectedHex(next.hex);
+      },
+      deselect: () => {
+        setSelectedHex(null);
+      },
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedHex(null);
+      } else if (e.key === "h" || e.key === "H") {
+        mapRef.current?.flyTo(origin.lat, origin.lon);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      delete (window as any).tvBridge;
+    };
+  }, [origin.lat, origin.lon, traffic?.aircraft, selectedHex]);
+
   const visible = useMemo(() => {
     const list = traffic?.aircraft ?? [];
     return list.filter((ac) => passesFilter(ac, settings.filter));

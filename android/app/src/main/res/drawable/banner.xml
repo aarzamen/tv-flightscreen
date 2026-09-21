@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Background -->
+    <path
+        android:fillColor="#0B0F19"
+        android:pathData="M0,0h320v180h-320z" />
+
+    <!-- Radar Grid Gradient / Subtle Rings -->
+    <path
+        android:strokeColor="#1E293B"
+        android:strokeWidth="1.5"
+        android:pathData="M160,90m-80,0a80,80 0 1,0 160,0a80,80 0 1,0 -160,0" />
+    <path
+        android:strokeColor="#1E293B"
+        android:strokeWidth="1"
+        android:pathData="M160,90m-55,0a55,55 0 1,0 110,0a55,55 0 1,0 -110,0" />
+    <path
+        android:strokeColor="#1E293B"
+        android:strokeWidth="1"
+        android:pathData="M160,90m-30,0a30,30 0 1,0 60,0a30,30 0 1,0 -60,0" />
+
+    <!-- Crosshairs -->
+    <path
+        android:strokeColor="#1E293B"
+        android:strokeWidth="1"
+        android:pathData="M160,5v170M75,90h170" />
+
+    <!-- Radar Sweep Glow Beam -->
+    <path
+        android:fillColor="#1500E676"
+        android:pathData="M160,90L225,35A80,80 0 0,0 160,10Z" />
+
+    <path
+        android:strokeColor="#00E676"
+        android:strokeWidth="2"
+        android:pathData="M160,90L225,35" />
+
+    <!-- Radar Center Station -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M160,90m-4,0a4,4 0 1,0 8,0a4,4 0 1,0 -8,0" />
+
+    <!-- Aircraft 1 (Leading target) -->
+    <group
+        android:translateX="210"
+        android:translateY="50"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
+        <path
+            android:fillColor="#00E5FF"
+            android:pathData="M12,2L14.7,10L22,12.5L14.7,13.4L13.3,21L12,19.2L10.7,21L9.3,13.4L2,12.5L9.3,10Z" />
+    </group>
+
+    <!-- Aircraft 2 -->
+    <group
+        android:translateX="110"
+        android:translateY="120"
+        android:scaleX="0.6"
+        android:scaleY="0.6">
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M12,2L14.7,10L22,12.5L14.7,13.4L13.3,21L12,19.2L10.7,21L9.3,13.4L2,12.5L9.3,10Z" />
+    </group>
+
+    <!-- Aircraft 3 -->
+    <group
+        android:translateX="125"
+        android:translateY="60"
+        android:scaleX="0.6"
+        android:scaleY="0.6">
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M12,2L14.7,10L22,12.5L14.7,13.4L13.3,21L12,19.2L10.7,21L9.3,13.4L2,12.5L9.3,10Z" />
+    </group>
+
+    <!-- App Name Banner Accent Line -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M24,152h272v2h-272z" />
+
+    <!-- Title Badge -->
+    <path
+        android:fillColor="#151C2C"
+        android:pathData="M24,124h130a4,4 0 0,1 4,4v20a0,0 0 0,1 0,0h-134a0,0 0 0,1 0,0v-20a4,4 0 0,1 4,-4z" />
+
+    <!-- Live indicator dot -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M34,136m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0" />
+
+</vector>

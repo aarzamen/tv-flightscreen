@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FlightScreen TV Desk Radar</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0B0F19;
+      color: #F1F5F9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      user-select: none;
+    }
+    #radar-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .hud-top {
+      position: absolute;
+      top: 24px;
+      left: 32px;
+      right: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      padding: 10px 18px;
+      border-radius: 10px;
+      backdrop-filter: blur(8px);
+    }
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #00E676;
+      box-shadow: 0 0 10px #00E676;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #F8FAFC;
+    }
+    .status-badge {
+      font-size: 13px;
+      color: #94A3B8;
+      background: rgba(30, 41, 59, 0.7);
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-left: 8px;
+    }
+    .stats-card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      padding: 10px 18px;
+      border-radius: 10px;
+      backdrop-filter: blur(8px);
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+    }
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: #64748B;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-val {
+      font-size: 16px;
+      font-weight: 600;
+      color: #00E5FF;
+      font-variant-numeric: tabular-nums;
+    }
+    .bottom-bar {
+      position: absolute;
+      bottom: 24px;
+      left: 32px;
+      right: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+    .instructions-card {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      color: #CBD5E1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .key-badge {
+      background: #1E293B;
+      border: 1px solid #475569;
+      color: #38BDF8;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="radar-canvas"></canvas>
+
+  <div class="hud-top">
+    <div class="brand">
+      <div id="status-dot" class="brand-dot"></div>
+      <div class="brand-title">FLIGHTSCREEN TV</div>
+      <span id="station-badge" class="status-badge">VENTURA / LAX BASIN</span>
+    </div>
+    <div class="stats-card">
+      <div class="stat-item">
+        <span class="stat-label">LIVE TRACKS</span>
+        <span id="stat-tracks" class="stat-val">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">RANGE</span>
+        <span id="stat-range" class="stat-val">60 NM</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">FEED SOURCE</span>
+        <span id="stat-mode" class="stat-val" style="color:#00E676;">STANDALONE LIVE</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="instructions-card">
+      <span><span class="key-badge">D-PAD</span> Pan Radar</span>
+      <span><span class="key-badge">CENTER</span> Target Aircraft</span>
+      <span><span class="key-badge">PLAY/PAUSE</span> Center Station</span>
+      <span><span class="key-badge">MENU / INFO</span> Switch Station / Settings</span>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('radar-canvas');
+    const ctx = canvas.getContext('2d');
+    const statTracks = document.getElementById('stat-tracks');
+    const statRange = document.getElementById('stat-range');
+    const statMode = document.getElementById('stat-mode');
+    const stationBadge = document.getElementById('station-badge');
+    const statusDot = document.getElementById('status-dot');
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let offsetX = 0;
+    let offsetY = 0;
+    let radiusNm = 60;
+    let sweepAngle = 0;
+
+    // Preset stations
+    const STATIONS = [
+      { name: "VENTURA / LAX BASIN", lat: 34.28, lon: -119.29 },
+      { name: "SAN FRANCISCO BAY", lat: 37.6213, lon: -122.3790 },
+      { name: "SEATTLE / TACOMA", lat: 47.4502, lon: -122.3088 },
+      { name: "NEW YORK / JFK", lat: 40.6413, lon: -73.7781 },
+      { name: "CHICAGO O'HARE", lat: 41.9742, lon: -87.9073 },
+      { name: "DENVER METRO", lat: 39.8561, lon: -104.6737 }
+    ];
+    let currentStationIndex = 0;
+    let station = STATIONS[0];
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * window.devicePixelRatio;
+      canvas.height = height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let aircraftList = [];
+    let selectedIndex = -1;
+    let lastFetchTime = 0;
+    let isFetching = false;
+
+    async function fetchLiveAdsb() {
+      if (isFetching) return;
+      isFetching = true;
+      const url = `https://api.adsb.lol/v2/lat/${station.lat}/lon/${station.lon}/dist/${radiusNm}`;
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+          const data = await res.json();
+          const ac = Array.isArray(data.ac) ? data.ac : [];
+          
+          aircraftList = ac.map(raw => {
+            const lat = Number(raw.lat);
+            const lon = Number(raw.lon);
+            const alt = raw.alt_baro === "ground" ? 0 : Number(raw.alt_baro) || 0;
+            const gs = Number(raw.gs) || 0;
+            const track = Number(raw.track) || 0;
+            const callsign = (raw.flight || raw.r || raw.hex || "").trim();
+            const type = (raw.t || "").trim();
+
+            // Nautical miles projection relative to center station
+            const dLat = (lat - station.lat) * 60;
+            const dLon = (lon - station.lon) * 60 * Math.cos(station.lat * Math.PI / 180);
+
+            return {
+              hex: String(raw.hex || ""),
+              callsign: callsign || "UNKNOWN",
+              type: type || "AIRCRAFT",
+              lat,
+              lon,
+              dLat,
+              dLon,
+              alt,
+              gs,
+              track,
+              vx: Math.sin(track * Math.PI / 180) * (gs / 3600),
+              vy: -Math.cos(track * Math.PI / 180) * (gs / 3600)
+            };
+          }).filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lon));
+
+          lastFetchTime = Date.now();
+          statTracks.textContent = aircraftList.length;
+          statMode.textContent = "LIVE ADS-B";
+          statMode.style.color = "#00E676";
+          statusDot.style.background = "#00E676";
+          statusDot.style.boxShadow = "0 0 10px #00E676";
+        }
+      } catch (err) {
+        console.warn("[FlightScreen] ADS-B live fetch:", err);
+        statMode.textContent = "RETRYING...";
+        statMode.style.color = "#FFB300";
+        statusDot.style.background = "#FFB300";
+      } finally {
+        isFetching = false;
+      }
+    }
+
+    // Initial fetch and 20s polling interval
+    fetchLiveAdsb();
+    setInterval(fetchLiveAdsb, 20000);
+
+    function draw() {
+      ctx.fillStyle = '#0B0F19';
+      ctx.fillRect(0, 0, width, height);
+
+      const cx = width / 2 + offsetX;
+      const cy = height / 2 + offsetY;
+      const maxR = Math.min(width, height) * 0.42;
+
+      // Concentric Range Rings
+      ctx.lineWidth = 1;
+      for (let r = 1; r <= 4; r++) {
+        const ringR = (maxR / 4) * r;
+        ctx.strokeStyle = (r === 4) ? '#334155' : '#1E293B';
+        ctx.beginPath();
+        ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '11px sans-serif';
+        ctx.fillText(`${Math.round((radiusNm / 4) * r)} NM`, cx + 6, cy - ringR + 14);
+      }
+
+      // Crosshairs
+      ctx.strokeStyle = '#1E293B';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR);
+      ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy);
+      ctx.stroke();
+
+      // Sweep Beam Animation
+      sweepAngle = (sweepAngle + 0.018) % (Math.PI * 2);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, maxR, sweepAngle - 0.28, sweepAngle);
+      ctx.closePath();
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+      grad.addColorStop(0, 'rgba(0, 230, 118, 0.25)');
+      grad.addColorStop(1, 'rgba(0, 230, 118, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Sweep Leading Ray
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(sweepAngle) * maxR, cy + Math.sin(sweepAngle) * maxR);
+      ctx.strokeStyle = '#00E676';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      // Station Center Marker
+      ctx.fillStyle = '#00E676';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(station.name.split('/')[0].trim(), cx + 8, cy + 4);
+
+      // Draw Live Aircraft
+      aircraftList.forEach((f, idx) => {
+        // Dead-reckoning position drift between polls
+        f.dLon += f.vx * 0.016;
+        f.dLat += f.vy * 0.016;
+
+        const px = cx + (f.dLon / radiusNm) * maxR;
+        const py = cy - (f.dLat / radiusNm) * maxR;
+
+        // Skip if outside visible map canvas
+        if (px < -50 || px > width + 50 || py < -50 || py > height + 50) return;
+
+        const isSel = (idx === selectedIndex);
+
+        // Aircraft Glyph
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate((f.track * Math.PI) / 180);
+
+        ctx.fillStyle = isSel ? '#00E5FF' : (f.alt < 10000 ? '#38BDF8' : '#60A5FA');
+        ctx.beginPath();
+        ctx.moveTo(0, -9);
+        ctx.lineTo(3, -2);
+        ctx.lineTo(9, 2);
+        ctx.lineTo(3, 4);
+        ctx.lineTo(2, 9);
+        ctx.lineTo(0, 8);
+        ctx.lineTo(-2, 9);
+        ctx.lineTo(-3, 4);
+        ctx.lineTo(-9, 2);
+        ctx.lineTo(-3, -2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Selection Target Ring
+        if (isSel) {
+          ctx.strokeStyle = '#00E5FF';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(px, py, 14, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Information Callout Tag
+        ctx.fillStyle = isSel ? '#00E5FF' : '#E2E8F0';
+        ctx.font = '11px monospace';
+        ctx.fillText(f.callsign, px + 12, py - 4);
+        ctx.fillStyle = '#64748B';
+        ctx.font = '10px monospace';
+        const altStr = f.alt === 0 ? "GND" : `FL${Math.round(f.alt / 100)}`;
+        ctx.fillText(`${altStr} ${Math.round(f.gs)}kt`, px + 12, py + 8);
+      });
+
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+
+    // Chromecast Remote Control Bridge
+    window.tvBridge = {
+      pan: (dx, dy) => {
+        offsetX -= dx * 1.2;
+        offsetY -= dy * 1.2;
+      },
+      snapHome: () => {
+        offsetX = 0;
+        offsetY = 0;
+      },
+      selectNext: () => {
+        if (aircraftList.length > 0) {
+          selectedIndex = (selectedIndex + 1) % aircraftList.length;
+        }
+      },
+      deselect: () => {
+        selectedIndex = -1;
+      },
+      cycleStation: () => {
+        currentStationIndex = (currentStationIndex + 1) % STATIONS.length;
+        station = STATIONS[currentStationIndex];
+        stationBadge.textContent = station.name;
+        selectedIndex = -1;
+        offsetX = 0;
+        offsetY = 0;
+        fetchLiveAdsb();
+      }
+    };
+  </script>
+</body>
+</html>

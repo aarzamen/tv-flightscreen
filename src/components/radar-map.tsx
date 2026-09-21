@@ -250,6 +250,9 @@ export const RadarMap = forwardRef<RadarHandle, Props>(function RadarMap(
 
       map.attributionControl.setPrefix("");
       mapRef.current = map;
+      if (typeof window !== "undefined") {
+        (window as any)._leafletMap = map;
+      }
 
       const dark = L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
@@ -408,6 +411,9 @@ export const RadarMap = forwardRef<RadarHandle, Props>(function RadarMap(
       if (sweepTimer.current != null) {
         window.clearInterval(sweepTimer.current);
         sweepTimer.current = null;
+      }
+      if (typeof window !== "undefined" && (window as any)._leafletMap === mapRef.current) {
+        delete (window as any)._leafletMap;
       }
       mapRef.current?.remove();
       mapRef.current = null;

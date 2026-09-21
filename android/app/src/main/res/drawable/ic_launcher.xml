@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+
+    <!-- Circle Dark Container -->
+    <path
+        android:fillColor="#0B0F19"
+        android:pathData="M48,48m-44,0a44,44 0 1,0 88,0a44,44 0 1,0 -88,0" />
+
+    <!-- Radar Rings -->
+    <path
+        android:strokeColor="#1E293B"
+        android:strokeWidth="1.5"
+        android:pathData="M48,48m-34,0a34,34 0 1,0 68,0a34,34 0 1,0 -68,0" />
+    <path
+        android:strokeColor="#1E293B"
+        android:strokeWidth="1"
+        android:pathData="M48,48m-20,0a20,20 0 1,0 40,0a20,20 0 1,0 -40,0" />
+
+    <!-- Sweep Beam -->
+    <path
+        android:fillColor="#1500E676"
+        android:pathData="M48,48L72,24A34,34 0 0,0 48,14Z" />
+    <path
+        android:strokeColor="#00E676"
+        android:strokeWidth="2"
+        android:pathData="M48,48L72,24" />
+
+    <!-- Center Station Dot -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M48,48m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -3,0" />
+
+    <!-- Main Aircraft Target -->
+    <group
+        android:translateX="58"
+        android:translateY="28"
+        android:scaleX="0.85"
+        android:scaleY="0.85">
+        <path
+            android:fillColor="#00E5FF"
+            android:pathData="M12,2L14.7,10L22,12.5L14.7,13.4L13.3,21L12,19.2L10.7,21L9.3,13.4L2,12.5L9.3,10Z" />
+    </group>
+
+    <!-- Outer Glow Ring -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="2"
+        android:pathData="M48,48m-43,0a43,43 0 1,0 86,0a43,43 0 1,0 -86,0" />
+
+</vector>

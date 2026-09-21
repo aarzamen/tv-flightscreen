@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FlightScreen TV</string>
+    <string name="server_dialog_title">FlightScreen Radar Source</string>
+    <string name="server_dialog_hint">https://your-deployed-app.vercel.app or http://...</string>
+    <string name="server_dialog_desc">By default, FlightScreen runs standalone on your TV, fetching live ADS-B flight feeds directly over Wi-Fi (no computer needed). You can optionally enter a custom web URL below.</string>
+    <string name="btn_save">Connect Custom URL</string>
+    <string name="btn_reset_demo">Use Standalone Live TV Radar</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="error_title">Connection Lost</string>
+    <string name="error_subtitle">Unable to reach the custom radar server. Switch to Standalone Live TV Radar or update your URL.</string>
+    <string name="btn_retry">Retry</string>
+    <string name="btn_configure">Settings</string>
+</resources>

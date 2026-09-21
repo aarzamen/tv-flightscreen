@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Cloud Deck",
+      "hasCanvas": false,
+      "bodyTextLen": 238,
+      "bodyTextHash": "ddf3a69f39a71b78084e99d14267b695039a1f11ebdfedf158fe1d86bf3b8b68",
+      "bodyTextPrefix": "20 nm 40 nm 80 nm AAL72 EVA620 UPS5903 AAL694 FDX1508 UPS7831 © ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Cloud Deck",
+      "hasCanvas": false,
+      "bodyTextLen": 669,
+      "bodyTextHash": "de41ca643e17d94800beb9e3d94805cb32c968cc360d5e8d1b8c6ba53175edaa",
+      "bodyTextPrefix": "KOXR CLR KCMA CLR KNTD CLR KSBA CLR KVNY CLR KSMO CLR KBUR CLR K",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

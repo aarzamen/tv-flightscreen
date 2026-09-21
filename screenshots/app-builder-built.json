@@ -1,0 +1,41 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Cloud Deck",
+      "hasCanvas": false,
+      "bodyTextLen": 115,
+      "bodyTextHash": "d9b211e9769d4807329490ead22ac81047fe7a7ca2df8f8ed83dbe4e46b9306e",
+      "bodyTextPrefix": "Cloud Deck WEST COAST Ventura, CA · GPS off · — · — · — 0 airbor",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Cloud Deck",
+      "hasCanvas": false,
+      "bodyTextLen": 115,
+      "bodyTextHash": "d9b211e9769d4807329490ead22ac81047fe7a7ca2df8f8ed83dbe4e46b9306e",
+      "bodyTextPrefix": "Cloud Deck WEST COAST Ventura, CA · GPS off · — · — · — 0 airbor",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": true,
+  "baselineReasons": [
+    "desktop: body text collapsed (238 -> 115 chars)",
+    "mobile: body text collapsed (669 -> 115 chars)"
+  ]
+}

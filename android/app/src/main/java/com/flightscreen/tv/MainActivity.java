@@ -37,6 +37,9 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
 
     private long lastBackPressTime = 0;
+    private long centerKeyDownTime = 0;
+    private boolean centerLongPressTriggered = false;
+
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
@@ -146,7 +149,7 @@ public class MainActivity extends Activity {
         if (!TextUtils.isEmpty(savedUrl)) {
             webView.loadUrl(savedUrl.trim());
         } else {
-            // Default: Bundled Standalone Live TV Radar (direct Wi-Fi, no computer needed!)
+            // Default: Bundled Standalone Live TV Radar with Dark OSM map
             webView.loadUrl(BUNDLED_ASSET_URL);
         }
     }
@@ -212,13 +215,20 @@ public class MainActivity extends Activity {
         webView.evaluateJavascript(js, null);
     }
 
+    private void zoomIn() {
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.zoomIn && window.tvBridge.zoomIn();", null);
+    }
+
+    private void zoomOut() {
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.zoomOut && window.tvBridge.zoomOut();", null);
+    }
+
+    private void toggleMapStyle() {
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.toggleMap && window.tvBridge.toggleMap();", null);
+    }
+
     private void cyclePresetStation() {
-        String js = "(function() {" +
-                "  if (window.tvBridge && typeof window.tvBridge.cycleStation === 'function') {" +
-                "    window.tvBridge.cycleStation();" +
-                "  }" +
-                "})();";
-        webView.evaluateJavascript(js, null);
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.cycleStation && window.tvBridge.cycleStation();", null);
     }
 
     private void deselectActive() {
@@ -277,21 +287,37 @@ public class MainActivity extends Activity {
         if (action == KeyEvent.ACTION_DOWN) {
             switch (keyCode) {
                 case KeyEvent.KEYCODE_DPAD_UP:
-                    panRadar(0, -90);
+                    panRadar(0, -110);
                     return true;
                 case KeyEvent.KEYCODE_DPAD_DOWN:
-                    panRadar(0, 90);
+                    panRadar(0, 110);
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT:
-                    panRadar(-90, 0);
+                    panRadar(-110, 0);
                     return true;
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    panRadar(90, 0);
+                    panRadar(110, 0);
                     return true;
 
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
-                    selectAircraftOrTarget();
+                    if (event.getRepeatCount() == 0) {
+                        centerKeyDownTime = System.currentTimeMillis();
+                        centerLongPressTriggered = false;
+                    } else if (!centerLongPressTriggered && (System.currentTimeMillis() - centerKeyDownTime > 650)) {
+                        centerLongPressTriggered = true;
+                        // Long press Center Select zooms in!
+                        zoomIn();
+                        Toast.makeText(this, "Zoomed In", Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                    return true;
+
+                // Mute button on the Chromecast remote toggles base map style (Dark OSM <-> Satellite)
+                case KeyEvent.KEYCODE_VOLUME_MUTE:
+                case KeyEvent.KEYCODE_MUTE:
+                    toggleMapStyle();
+                    Toast.makeText(this, "Toggled Map Style", Toast.LENGTH_SHORT).show();
                     return true;
 
                 case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
@@ -326,6 +352,13 @@ public class MainActivity extends Activity {
                         Toast.makeText(this, "Press BACK again to exit", Toast.LENGTH_SHORT).show();
                     }
                     return true;
+            }
+        } else if (action == KeyEvent.ACTION_UP) {
+            if ((keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
+                if (!centerLongPressTriggered) {
+                    selectAircraftOrTarget();
+                }
+                return true;
             }
         }
 

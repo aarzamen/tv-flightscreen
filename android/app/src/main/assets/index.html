@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>FlightScreen TV Desk Radar</title>
+  <link rel="stylesheet" href="leaflet/leaflet.css" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    html, body {
       background: #0B0F19;
       color: #F1F5F9;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -15,14 +16,29 @@
       height: 100vh;
       user-select: none;
     }
+
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0B0F19;
+      z-index: 1;
+    }
+
+    /* Radar Canvas Overlay directly on top of Leaflet */
     #radar-canvas {
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2;
+      pointer-events: none;
     }
+
+    /* Top HUD Cockpit Header */
     .hud-top {
       position: absolute;
       top: 24px;
@@ -31,53 +47,58 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      z-index: 10;
       pointer-events: none;
     }
-    .brand {
+
+    .brand-pill {
       display: flex;
       align-items: center;
       gap: 12px;
-      background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(51, 65, 85, 0.8);
+      background: rgba(11, 15, 25, 0.88);
+      border: 1px solid rgba(51, 65, 85, 0.85);
       padding: 10px 18px;
-      border-radius: 10px;
-      backdrop-filter: blur(8px);
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
     .brand-dot {
       width: 10px;
       height: 10px;
       border-radius: 50%;
       background: #00E676;
-      box-shadow: 0 0 10px #00E676;
+      box-shadow: 0 0 12px #00E676;
       animation: pulse 2s infinite;
     }
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
     }
     .brand-title {
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 800;
       letter-spacing: 1px;
       color: #F8FAFC;
     }
-    .status-badge {
+    .station-badge {
       font-size: 13px;
-      color: #94A3B8;
-      background: rgba(30, 41, 59, 0.7);
+      color: #38BDF8;
+      background: rgba(30, 41, 59, 0.8);
       padding: 4px 10px;
       border-radius: 6px;
-      margin-left: 8px;
+      font-weight: 600;
+      border: 1px solid rgba(56, 189, 248, 0.2);
     }
+
     .stats-card {
-      background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(51, 65, 85, 0.8);
+      background: rgba(11, 15, 25, 0.88);
+      border: 1px solid rgba(51, 65, 85, 0.85);
       padding: 10px 18px;
-      border-radius: 10px;
-      backdrop-filter: blur(8px);
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
       display: flex;
-      gap: 20px;
-      font-size: 14px;
+      gap: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
     .stat-item {
       display: flex;
@@ -88,13 +109,64 @@
       color: #64748B;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      font-weight: 600;
     }
     .stat-val {
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 700;
       color: #00E5FF;
       font-variant-numeric: tabular-nums;
     }
+
+    /* Selected Aircraft Target HUD Card */
+    #target-card {
+      position: absolute;
+      top: 90px;
+      left: 32px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid #00E5FF;
+      border-radius: 12px;
+      padding: 14px 20px;
+      box-shadow: 0 8px 30px rgba(0, 229, 255, 0.25);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+      display: none;
+      pointer-events: none;
+      min-width: 240px;
+      animation: fadeIn 0.25s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .target-callsign {
+      font-size: 20px;
+      font-weight: 800;
+      color: #00E5FF;
+      letter-spacing: 1px;
+    }
+    .target-type {
+      font-size: 13px;
+      color: #94A3B8;
+      margin-bottom: 8px;
+    }
+    .target-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+      font-size: 13px;
+    }
+    .target-metric-label {
+      color: #64748B;
+      font-size: 11px;
+    }
+    .target-metric-val {
+      color: #F8FAFC;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Bottom Instructions Bar */
     .bottom-bar {
       position: absolute;
       bottom: 24px;
@@ -103,38 +175,143 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
+      z-index: 10;
       pointer-events: none;
     }
     .instructions-card {
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(59, 130, 246, 0.4);
-      padding: 12px 20px;
+      background: rgba(11, 15, 25, 0.9);
+      border: 1px solid rgba(51, 65, 85, 0.85);
+      padding: 10px 18px;
       border-radius: 10px;
       font-size: 13px;
       color: #CBD5E1;
       display: flex;
       align-items: center;
       gap: 16px;
+      backdrop-filter: blur(10px);
     }
     .key-badge {
       background: #1E293B;
       border: 1px solid #475569;
       color: #38BDF8;
-      padding: 2px 8px;
+      padding: 3px 8px;
       border-radius: 4px;
-      font-weight: bold;
+      font-weight: 700;
       font-size: 11px;
+    }
+
+    /* Floating Quick Control Pills */
+    .controls-card {
+      background: rgba(11, 15, 25, 0.9);
+      border: 1px solid rgba(51, 65, 85, 0.85);
+      padding: 6px 10px;
+      border-radius: 10px;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .ctrl-btn {
+      background: #1E293B;
+      border: 1px solid #334155;
+      color: #E2E8F0;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .ctrl-btn:hover, .ctrl-btn:focus {
+      background: #2563EB;
+      border-color: #60A5FA;
+      color: #FFFFFF;
+      outline: none;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+    }
+
+    /* Custom Leaflet Airplane Markers */
+    .plane-marker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      transition: transform 0.2s linear;
+    }
+    .plane-icon-wrap {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s ease;
+    }
+    .plane-svg {
+      width: 20px;
+      height: 20px;
+      fill: #38BDF8;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8));
+    }
+    .plane-marker.is-high .plane-svg {
+      fill: #60A5FA;
+    }
+    .plane-marker.is-low .plane-svg {
+      fill: #00E5FF;
+    }
+    .plane-marker.is-selected .plane-svg {
+      fill: #00E676;
+      width: 24px;
+      height: 24px;
+      filter: drop-shadow(0 0 8px #00E676);
+    }
+    .plane-label {
+      font-size: 10px;
+      font-family: monospace;
+      font-weight: 600;
+      color: #E2E8F0;
+      background: rgba(11, 15, 25, 0.85);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+      padding: 1px 4px;
+      border-radius: 3px;
+      white-space: nowrap;
+      margin-top: 2px;
+      pointer-events: none;
+    }
+    .plane-marker.is-selected .plane-label {
+      color: #00E676;
+      border-color: #00E676;
+    }
+
+    /* Hide standard Leaflet UI noise for TV immersion */
+    .leaflet-control-zoom { display: none !important; }
+    .leaflet-control-attribution {
+      background: rgba(11, 15, 25, 0.7) !important;
+      color: #64748B !important;
+      font-size: 9px !important;
+    }
+    .leaflet-control-attribution a {
+      color: #94A3B8 !important;
+      text-decoration: none !important;
     }
   </style>
 </head>
 <body>
+
+  <!-- OpenStreetMap Dark Base Map Container -->
+  <div id="map"></div>
+
+  <!-- Realtime Radar Circles and Sweep Beam Overlay -->
   <canvas id="radar-canvas"></canvas>
 
+  <!-- Top Cockpit Status Bar -->
   <div class="hud-top">
-    <div class="brand">
+    <div class="brand-pill">
       <div id="status-dot" class="brand-dot"></div>
       <div class="brand-title">FLIGHTSCREEN TV</div>
-      <span id="station-badge" class="status-badge">VENTURA / LAX BASIN</span>
+      <span id="station-badge" class="station-badge">VENTURA / LAX BASIN</span>
     </div>
     <div class="stats-card">
       <div class="stat-item">
@@ -146,270 +323,395 @@
         <span id="stat-range" class="stat-val">60 NM</span>
       </div>
       <div class="stat-item">
-        <span class="stat-label">FEED SOURCE</span>
-        <span id="stat-mode" class="stat-val" style="color:#00E676;">STANDALONE LIVE</span>
+        <span class="stat-label">BASE MAP</span>
+        <span id="stat-map-mode" class="stat-val" style="color:#38BDF8;">DARK OSM</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">FEED</span>
+        <span id="stat-feed" class="stat-val" style="color:#00E676;">LIVE ADS-B</span>
       </div>
     </div>
   </div>
 
-  <div class="bottom-bar">
-    <div class="instructions-card">
-      <span><span class="key-badge">D-PAD</span> Pan Radar</span>
-      <span><span class="key-badge">CENTER</span> Target Aircraft</span>
-      <span><span class="key-badge">PLAY/PAUSE</span> Center Station</span>
-      <span><span class="key-badge">MENU / INFO</span> Switch Station / Settings</span>
+  <!-- Targeted Aircraft Detailed Card -->
+  <div id="target-card">
+    <div id="target-callsign" class="target-callsign">UAL442</div>
+    <div id="target-type" class="target-type">BOEING 737-800 • REG: N542DE</div>
+    <div class="target-grid">
+      <div>
+        <div class="target-metric-label">ALTITUDE</div>
+        <div id="target-alt" class="target-metric-val">FL240 (24,000 ft)</div>
+      </div>
+      <div>
+        <div class="target-metric-label">GROUND SPEED</div>
+        <div id="target-speed" class="target-metric-val">410 kt</div>
+      </div>
+      <div>
+        <div class="target-metric-label">HEADING</div>
+        <div id="target-heading" class="target-metric-val">265° W</div>
+      </div>
+      <div>
+        <div class="target-metric-label">SQUAWK</div>
+        <div id="target-squawk" class="target-metric-val">1346</div>
+      </div>
     </div>
   </div>
 
+  <!-- Bottom Action & Remote Cheatsheet Bar -->
+  <div class="bottom-bar">
+    <div class="instructions-card">
+      <span><span class="key-badge">D-PAD</span> Pan Map</span>
+      <span><span class="key-badge">SELECT</span> Target Aircraft</span>
+      <span><span class="key-badge">HOLD SELECT</span> Zoom In/Out</span>
+      <span><span class="key-badge">BACK</span> Deselect / Reset</span>
+    </div>
+
+    <div class="controls-card">
+      <button id="btn-zoom-in" class="ctrl-btn" tabindex="0">+ Zoom</button>
+      <button id="btn-zoom-out" class="ctrl-btn" tabindex="0">− Zoom</button>
+      <button id="btn-center" class="ctrl-btn" tabindex="0">🎯 Center</button>
+      <button id="btn-map-toggle" class="ctrl-btn" tabindex="0">🗺️ Map</button>
+      <button id="btn-station" class="ctrl-btn" tabindex="0">📍 Station</button>
+    </div>
+  </div>
+
+  <!-- Load Bundled Leaflet JS -->
+  <script src="leaflet/leaflet.js"></script>
+
   <script>
-    const canvas = document.getElementById('radar-canvas');
-    const ctx = canvas.getContext('2d');
-    const statTracks = document.getElementById('stat-tracks');
-    const statRange = document.getElementById('stat-range');
-    const statMode = document.getElementById('stat-mode');
-    const stationBadge = document.getElementById('station-badge');
-    const statusDot = document.getElementById('status-dot');
-
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    let offsetX = 0;
-    let offsetY = 0;
-    let radiusNm = 60;
-    let sweepAngle = 0;
-
-    // Preset stations
+    // Station presets
     const STATIONS = [
-      { name: "VENTURA / LAX BASIN", lat: 34.28, lon: -119.29 },
-      { name: "SAN FRANCISCO BAY", lat: 37.6213, lon: -122.3790 },
-      { name: "SEATTLE / TACOMA", lat: 47.4502, lon: -122.3088 },
-      { name: "NEW YORK / JFK", lat: 40.6413, lon: -73.7781 },
-      { name: "CHICAGO O'HARE", lat: 41.9742, lon: -87.9073 },
-      { name: "DENVER METRO", lat: 39.8561, lon: -104.6737 }
+      { name: "VENTURA / LAX BASIN", lat: 34.2800, lon: -119.2900, zoom: 9 },
+      { name: "SAN FRANCISCO BAY", lat: 37.6213, lon: -122.3790, zoom: 9 },
+      { name: "SEATTLE / TACOMA", lat: 47.4502, lon: -122.3088, zoom: 9 },
+      { name: "NEW YORK / JFK", lat: 40.6413, lon: -73.7781, zoom: 9 },
+      { name: "CHICAGO O'HARE", lat: 41.9742, lon: -87.9073, zoom: 9 },
+      { name: "DENVER METRO", lat: 39.8561, lon: -104.6737, zoom: 9 }
     ];
     let currentStationIndex = 0;
     let station = STATIONS[0];
+    let radiusNm = 60;
 
-    function resize() {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width * window.devicePixelRatio;
-      canvas.height = height * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    // Initialize Leaflet Map
+    const map = L.map('map', {
+      center: [station.lat, station.lon],
+      zoom: station.zoom,
+      zoomControl: false,
+      attributionControl: true,
+      preferCanvas: true
+    });
+
+    // Dark Mode Open Source GIS Base Layer (Crisp, clean, no watermark)
+    const darkTileLayer = L.tileLayer('https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: '&copy; Esri, DeLorme, NAVTEQ, &copy; OpenStreetMap'
+    }).addTo(map);
+
+    const darkLabelsLayer = L.tileLayer('https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      zIndex: 4
+    }).addTo(map);
+
+    // Satellite Imagery Layer (Esri World Imagery)
+    const satTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      attribution: '&copy; Esri, Maxar, Earthstar Geographics'
+    });
+
+    let isSatellite = false;
+    function toggleMapStyle() {
+      isSatellite = !isSatellite;
+      if (isSatellite) {
+        map.removeLayer(darkTileLayer);
+        map.removeLayer(darkLabelsLayer);
+        satTileLayer.addTo(map);
+        document.getElementById('stat-map-mode').textContent = "SATELLITE";
+        document.getElementById('stat-map-mode').style.color = "#F59E0B";
+      } else {
+        map.removeLayer(satTileLayer);
+        darkTileLayer.addTo(map);
+        darkLabelsLayer.addTo(map);
+        document.getElementById('stat-map-mode').textContent = "DARK OSM";
+        document.getElementById('stat-map-mode').style.color = "#38BDF8";
+      }
     }
-    window.addEventListener('resize', resize);
-    resize();
 
-    let aircraftList = [];
+    // Canvas Radar Sweep & Concentric Rings Layer
+    const radarCanvas = document.getElementById('radar-canvas');
+    const rCtx = radarCanvas.getContext('2d');
+    let sweepAngle = 0;
+
+    function resizeCanvas() {
+      radarCanvas.width = window.innerWidth * window.devicePixelRatio;
+      radarCanvas.height = window.innerHeight * window.devicePixelRatio;
+      rCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drawRadarOverlay() {
+      rCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      // Station screen coordinates on Leaflet
+      const stationPoint = map.latLngToContainerPoint([station.lat, station.lon]);
+      const cx = stationPoint.x;
+      const cy = stationPoint.y;
+
+      // Calculate pixel radius for nautical miles at current zoom
+      // 1 degree lat = 60 NM
+      const refPoint = map.latLngToContainerPoint([station.lat + (radiusNm / 60), station.lon]);
+      const maxR = Math.abs(cy - refPoint.y);
+
+      if (maxR > 10 && maxR < 4000) {
+        // Concentric distance range rings
+        rCtx.lineWidth = 1;
+        for (let r = 1; r <= 4; r++) {
+          const ringR = (maxR / 4) * r;
+          rCtx.strokeStyle = (r === 4) ? 'rgba(56, 189, 248, 0.45)' : 'rgba(30, 41, 59, 0.65)';
+          rCtx.beginPath();
+          rCtx.arc(cx, cy, ringR, 0, Math.PI * 2);
+          rCtx.stroke();
+
+          // Distance labels
+          rCtx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+          rCtx.font = '11px sans-serif';
+          rCtx.fillText(`${Math.round((radiusNm / 4) * r)} NM`, cx + 6, cy - ringR + 14);
+        }
+
+        // Crosshairs
+        rCtx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+        rCtx.beginPath();
+        rCtx.moveTo(cx, cy - maxR); rCtx.lineTo(cx, cy + maxR);
+        rCtx.moveTo(cx - maxR, cy); rCtx.lineTo(cx + maxR, cy);
+        rCtx.stroke();
+
+        // Glowing Radar Sweep Beam
+        sweepAngle = (sweepAngle + 0.02) % (Math.PI * 2);
+        rCtx.save();
+        rCtx.beginPath();
+        rCtx.moveTo(cx, cy);
+        rCtx.arc(cx, cy, maxR, sweepAngle - 0.28, sweepAngle);
+        rCtx.closePath();
+        const grad = rCtx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+        grad.addColorStop(0, 'rgba(0, 230, 118, 0.22)');
+        grad.addColorStop(1, 'rgba(0, 230, 118, 0.0)');
+        rCtx.fillStyle = grad;
+        rCtx.fill();
+
+        // Leading Sweep Line
+        rCtx.beginPath();
+        rCtx.moveTo(cx, cy);
+        rCtx.lineTo(cx + Math.cos(sweepAngle) * maxR, cy + Math.sin(sweepAngle) * maxR);
+        rCtx.strokeStyle = '#00E676';
+        rCtx.lineWidth = 2;
+        rCtx.stroke();
+        rCtx.restore();
+
+        // Center Station Marker
+        rCtx.fillStyle = '#00E676';
+        rCtx.beginPath();
+        rCtx.arc(cx, cy, 6, 0, Math.PI * 2);
+        rCtx.fill();
+        rCtx.strokeStyle = '#FFFFFF';
+        rCtx.lineWidth = 1.5;
+        rCtx.stroke();
+
+        rCtx.fillStyle = '#F1F5F9';
+        rCtx.font = 'bold 12px sans-serif';
+        rCtx.fillText(station.name.split('/')[0].trim(), cx + 10, cy + 4);
+      }
+
+      requestAnimationFrame(drawRadarOverlay);
+    }
+    requestAnimationFrame(drawRadarOverlay);
+
+    // Live Aircraft Markers State
+    const planeMarkers = new Map();
+    let aircraftData = [];
+    let selectedHex = null;
     let selectedIndex = -1;
-    let lastFetchTime = 0;
-    let isFetching = false;
 
+    const PLANE_SVG_PATH = "M12,2L14.7,10L22,12.5L14.7,13.4L13.3,21L12,19.2L10.7,21L9.3,13.4L2,12.5L9.3,10Z";
+
+    function updateAircraftMarkers(aircraft) {
+      aircraftData = aircraft;
+      document.getElementById('stat-tracks').textContent = aircraft.length;
+
+      const currentHexes = new Set();
+
+      aircraft.forEach(ac => {
+        currentHexes.add(ac.hex);
+        const rot = ac.track || 0;
+        const altClass = ac.alt > 25000 ? 'is-high' : (ac.alt < 10000 ? 'is-low' : '');
+        const isSel = (ac.hex === selectedHex);
+        const selClass = isSel ? 'is-selected' : '';
+        const altLabel = ac.alt === 0 ? 'GND' : `FL${Math.round(ac.alt / 100)}`;
+
+        if (planeMarkers.has(ac.hex)) {
+          const marker = planeMarkers.get(ac.hex);
+          marker.setLatLng([ac.lat, ac.lon]);
+          const el = marker.getElement();
+          if (el) {
+            el.className = `plane-marker ${altClass} ${selClass}`;
+            const iconWrap = el.querySelector('.plane-icon-wrap');
+            if (iconWrap) iconWrap.style.transform = `rotate(${rot}deg)`;
+            const label = el.querySelector('.plane-label');
+            if (label) label.textContent = `${ac.callsign} ${altLabel}`;
+          }
+        } else {
+          const customHtml = `
+            <div class="plane-marker ${altClass} ${selClass}">
+              <div class="plane-icon-wrap" style="transform:rotate(${rot}deg)">
+                <svg class="plane-svg" viewBox="0 0 24 24"><path d="${PLANE_SVG_PATH}"/></svg>
+              </div>
+              <div class="plane-label">${ac.callsign} ${altLabel}</div>
+            </div>
+          `;
+          const icon = L.divIcon({
+            html: customHtml,
+            className: 'ac-icon-container',
+            iconSize: [60, 40],
+            iconAnchor: [30, 20]
+          });
+          const marker = L.marker([ac.lat, ac.lon], { icon }).addTo(map);
+          marker.on('click', () => selectAircraft(ac.hex));
+          planeMarkers.set(ac.hex, marker);
+        }
+      });
+
+      // Purge stale aircraft
+      for (const [hex, marker] of planeMarkers.entries()) {
+        if (!currentHexes.has(hex)) {
+          map.removeLayer(marker);
+          planeMarkers.delete(hex);
+        }
+      }
+
+      if (selectedHex) {
+        const found = aircraft.find(a => a.hex === selectedHex);
+        if (found) showTargetCard(found);
+      }
+    }
+
+    function selectAircraft(hex) {
+      selectedHex = hex;
+      selectedIndex = aircraftData.findIndex(a => a.hex === hex);
+      const ac = aircraftData[selectedIndex];
+      if (ac) {
+        showTargetCard(ac);
+        // Highlight marker
+        planeMarkers.forEach((marker, mHex) => {
+          const el = marker.getElement();
+          if (el) {
+            if (mHex === hex) el.classList.add('is-selected');
+            else el.classList.remove('is-selected');
+          }
+        });
+      }
+    }
+
+    function showTargetCard(ac) {
+      const card = document.getElementById('target-card');
+      document.getElementById('target-callsign').textContent = ac.callsign;
+      document.getElementById('target-type').textContent = `${ac.type || "AIRCRAFT"} • HEX: ${ac.hex.toUpperCase()}`;
+      document.getElementById('target-alt').textContent = ac.alt === 0 ? "GROUND" : `FL${Math.round(ac.alt/100)} (${ac.alt.toLocaleString()} ft)`;
+      document.getElementById('target-speed').textContent = `${Math.round(ac.gs)} kt`;
+      document.getElementById('target-heading').textContent = `${Math.round(ac.track)}°`;
+      document.getElementById('target-squawk').textContent = ac.squawk || "—";
+      card.style.display = 'block';
+    }
+
+    function deselectAircraft() {
+      selectedHex = null;
+      selectedIndex = -1;
+      document.getElementById('target-card').style.display = 'none';
+      planeMarkers.forEach(marker => {
+        const el = marker.getElement();
+        if (el) el.classList.remove('is-selected');
+      });
+    }
+
+    // Live ADS-B Polling
     async function fetchLiveAdsb() {
-      if (isFetching) return;
-      isFetching = true;
       const url = `https://api.adsb.lol/v2/lat/${station.lat}/lon/${station.lon}/dist/${radiusNm}`;
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           const data = await res.json();
           const ac = Array.isArray(data.ac) ? data.ac : [];
-          
-          aircraftList = ac.map(raw => {
-            const lat = Number(raw.lat);
-            const lon = Number(raw.lon);
-            const alt = raw.alt_baro === "ground" ? 0 : Number(raw.alt_baro) || 0;
-            const gs = Number(raw.gs) || 0;
-            const track = Number(raw.track) || 0;
-            const callsign = (raw.flight || raw.r || raw.hex || "").trim();
-            const type = (raw.t || "").trim();
+          const parsed = ac.map(raw => ({
+            hex: String(raw.hex || ""),
+            callsign: (raw.flight || raw.r || raw.hex || "").trim() || "UNKNOWN",
+            type: (raw.t || "").trim() || "AIRCRAFT",
+            lat: Number(raw.lat),
+            lon: Number(raw.lon),
+            alt: raw.alt_baro === "ground" ? 0 : Number(raw.alt_baro) || 0,
+            gs: Number(raw.gs) || 0,
+            track: Number(raw.track) || 0,
+            squawk: String(raw.squawk || "").trim()
+          })).filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lon));
 
-            // Nautical miles projection relative to center station
-            const dLat = (lat - station.lat) * 60;
-            const dLon = (lon - station.lon) * 60 * Math.cos(station.lat * Math.PI / 180);
-
-            return {
-              hex: String(raw.hex || ""),
-              callsign: callsign || "UNKNOWN",
-              type: type || "AIRCRAFT",
-              lat,
-              lon,
-              dLat,
-              dLon,
-              alt,
-              gs,
-              track,
-              vx: Math.sin(track * Math.PI / 180) * (gs / 3600),
-              vy: -Math.cos(track * Math.PI / 180) * (gs / 3600)
-            };
-          }).filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lon));
-
-          lastFetchTime = Date.now();
-          statTracks.textContent = aircraftList.length;
-          statMode.textContent = "LIVE ADS-B";
-          statMode.style.color = "#00E676";
-          statusDot.style.background = "#00E676";
-          statusDot.style.boxShadow = "0 0 10px #00E676";
+          updateAircraftMarkers(parsed);
+          document.getElementById('stat-feed').textContent = "LIVE ADS-B";
+          document.getElementById('stat-feed').style.color = "#00E676";
         }
       } catch (err) {
-        console.warn("[FlightScreen] ADS-B live fetch:", err);
-        statMode.textContent = "RETRYING...";
-        statMode.style.color = "#FFB300";
-        statusDot.style.background = "#FFB300";
-      } finally {
-        isFetching = false;
+        console.warn("[FlightScreen] Live ADS-B poll:", err);
+        document.getElementById('stat-feed').textContent = "RETRYING...";
+        document.getElementById('stat-feed').style.color = "#FFB300";
       }
     }
 
-    // Initial fetch and 20s polling interval
     fetchLiveAdsb();
-    setInterval(fetchLiveAdsb, 20000);
+    setInterval(fetchLiveAdsb, 18000);
 
-    function draw() {
-      ctx.fillStyle = '#0B0F19';
-      ctx.fillRect(0, 0, width, height);
-
-      const cx = width / 2 + offsetX;
-      const cy = height / 2 + offsetY;
-      const maxR = Math.min(width, height) * 0.42;
-
-      // Concentric Range Rings
-      ctx.lineWidth = 1;
-      for (let r = 1; r <= 4; r++) {
-        const ringR = (maxR / 4) * r;
-        ctx.strokeStyle = (r === 4) ? '#334155' : '#1E293B';
-        ctx.beginPath();
-        ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.fillStyle = '#475569';
-        ctx.font = '11px sans-serif';
-        ctx.fillText(`${Math.round((radiusNm / 4) * r)} NM`, cx + 6, cy - ringR + 14);
-      }
-
-      // Crosshairs
-      ctx.strokeStyle = '#1E293B';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR);
-      ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy);
-      ctx.stroke();
-
-      // Sweep Beam Animation
-      sweepAngle = (sweepAngle + 0.018) % (Math.PI * 2);
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, maxR, sweepAngle - 0.28, sweepAngle);
-      ctx.closePath();
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
-      grad.addColorStop(0, 'rgba(0, 230, 118, 0.25)');
-      grad.addColorStop(1, 'rgba(0, 230, 118, 0.0)');
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // Sweep Leading Ray
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(sweepAngle) * maxR, cy + Math.sin(sweepAngle) * maxR);
-      ctx.strokeStyle = '#00E676';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-
-      // Station Center Marker
-      ctx.fillStyle = '#00E676';
-      ctx.beginPath();
-      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#94A3B8';
-      ctx.font = '12px sans-serif';
-      ctx.fillText(station.name.split('/')[0].trim(), cx + 8, cy + 4);
-
-      // Draw Live Aircraft
-      aircraftList.forEach((f, idx) => {
-        // Dead-reckoning position drift between polls
-        f.dLon += f.vx * 0.016;
-        f.dLat += f.vy * 0.016;
-
-        const px = cx + (f.dLon / radiusNm) * maxR;
-        const py = cy - (f.dLat / radiusNm) * maxR;
-
-        // Skip if outside visible map canvas
-        if (px < -50 || px > width + 50 || py < -50 || py > height + 50) return;
-
-        const isSel = (idx === selectedIndex);
-
-        // Aircraft Glyph
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate((f.track * Math.PI) / 180);
-
-        ctx.fillStyle = isSel ? '#00E5FF' : (f.alt < 10000 ? '#38BDF8' : '#60A5FA');
-        ctx.beginPath();
-        ctx.moveTo(0, -9);
-        ctx.lineTo(3, -2);
-        ctx.lineTo(9, 2);
-        ctx.lineTo(3, 4);
-        ctx.lineTo(2, 9);
-        ctx.lineTo(0, 8);
-        ctx.lineTo(-2, 9);
-        ctx.lineTo(-3, 4);
-        ctx.lineTo(-9, 2);
-        ctx.lineTo(-3, -2);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-
-        // Selection Target Ring
-        if (isSel) {
-          ctx.strokeStyle = '#00E5FF';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.arc(px, py, 14, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        // Information Callout Tag
-        ctx.fillStyle = isSel ? '#00E5FF' : '#E2E8F0';
-        ctx.font = '11px monospace';
-        ctx.fillText(f.callsign, px + 12, py - 4);
-        ctx.fillStyle = '#64748B';
-        ctx.font = '10px monospace';
-        const altStr = f.alt === 0 ? "GND" : `FL${Math.round(f.alt / 100)}`;
-        ctx.fillText(`${altStr} ${Math.round(f.gs)}kt`, px + 12, py + 8);
-      });
-
-      requestAnimationFrame(draw);
+    // Cycle Station Preset
+    function cycleStation() {
+      currentStationIndex = (currentStationIndex + 1) % STATIONS.length;
+      station = STATIONS[currentStationIndex];
+      document.getElementById('station-badge').textContent = station.name;
+      map.flyTo([station.lat, station.lon], station.zoom, { duration: 1.2 });
+      deselectAircraft();
+      fetchLiveAdsb();
     }
-    requestAnimationFrame(draw);
 
-    // Chromecast Remote Control Bridge
+    // Chromecast Voice Remote Bridge Methods
     window.tvBridge = {
       pan: (dx, dy) => {
-        offsetX -= dx * 1.2;
-        offsetY -= dy * 1.2;
+        map.panBy([dx * 1.5, dy * 1.5], { animate: true, duration: 0.25 });
       },
       snapHome: () => {
-        offsetX = 0;
-        offsetY = 0;
+        map.flyTo([station.lat, station.lon], station.zoom, { duration: 0.8 });
+      },
+      zoomIn: () => {
+        map.zoomIn();
+      },
+      zoomOut: () => {
+        map.zoomOut();
       },
       selectNext: () => {
-        if (aircraftList.length > 0) {
-          selectedIndex = (selectedIndex + 1) % aircraftList.length;
+        if (aircraftData.length > 0) {
+          selectedIndex = (selectedIndex + 1) % aircraftData.length;
+          selectAircraft(aircraftData[selectedIndex].hex);
         }
       },
       deselect: () => {
-        selectedIndex = -1;
+        deselectAircraft();
+      },
+      toggleMap: () => {
+        toggleMapStyle();
       },
       cycleStation: () => {
-        currentStationIndex = (currentStationIndex + 1) % STATIONS.length;
-        station = STATIONS[currentStationIndex];
-        stationBadge.textContent = station.name;
-        selectedIndex = -1;
-        offsetX = 0;
-        offsetY = 0;
-        fetchLiveAdsb();
+        cycleStation();
       }
     };
+
+    // UI Buttons Binding
+    document.getElementById('btn-zoom-in').onclick = () => map.zoomIn();
+    document.getElementById('btn-zoom-out').onclick = () => map.zoomOut();
+    document.getElementById('btn-center').onclick = () => window.tvBridge.snapHome();
+    document.getElementById('btn-map-toggle').onclick = () => toggleMapStyle();
+    document.getElementById('btn-station').onclick = () => cycleStation();
   </script>
 </body>
 </html>

@@ -39,8 +39,21 @@ public class MainActivity extends Activity {
     private long lastBackPressTime = 0;
     private long centerKeyDownTime = 0;
     private boolean centerLongPressTriggered = false;
+    private boolean isToolbarMode = false;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    private final Runnable centerLongPressRunnable = new Runnable() {
+        @Override
+        public void run() {
+            centerLongPressTriggered = true;
+            if (!isToolbarMode) {
+                enterToolbarMode();
+            } else {
+                exitToolbarMode();
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -139,6 +152,7 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                isToolbarMode = false;
                 injectRemoteBridgeScript();
             }
         });
@@ -204,15 +218,7 @@ public class MainActivity extends Activity {
     }
 
     private void selectAircraftOrTarget() {
-        String js = "(function() {" +
-                "  if (window.tvBridge && typeof window.tvBridge.selectNext === 'function') {" +
-                "    window.tvBridge.selectNext();" +
-                "  } else {" +
-                "    var target = document.activeElement;" +
-                "    if (target && typeof target.click === 'function') target.click();" +
-                "  }" +
-                "})();";
-        webView.evaluateJavascript(js, null);
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.selectNext && window.tvBridge.selectNext();", null);
     }
 
     private void zoomIn() {
@@ -241,6 +247,24 @@ public class MainActivity extends Activity {
                 "  }" +
                 "})();";
         webView.evaluateJavascript(js, null);
+    }
+
+    private void enterToolbarMode() {
+        isToolbarMode = true;
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.enterToolbarMode && window.tvBridge.enterToolbarMode();", null);
+    }
+
+    private void exitToolbarMode() {
+        isToolbarMode = false;
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.exitToolbarMode && window.tvBridge.exitToolbarMode();", null);
+    }
+
+    private void navigateToolbar(int dir) {
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.navigateToolbar && window.tvBridge.navigateToolbar(" + dir + ");", null);
+    }
+
+    private void clickToolbarFocused() {
+        webView.evaluateJavascript("window.tvBridge && window.tvBridge.clickFocused && window.tvBridge.clickFocused();", null);
     }
 
     public void showServerUrlDialog() {
@@ -287,33 +311,55 @@ public class MainActivity extends Activity {
         if (action == KeyEvent.ACTION_DOWN) {
             switch (keyCode) {
                 case KeyEvent.KEYCODE_DPAD_UP:
-                    panRadar(0, -110);
+                    if (isToolbarMode) {
+                        exitToolbarMode();
+                    } else {
+                        panRadar(0, -110);
+                    }
                     return true;
+
                 case KeyEvent.KEYCODE_DPAD_DOWN:
-                    panRadar(0, 110);
+                    if (!isToolbarMode) {
+                        panRadar(0, 110);
+                    }
                     return true;
+
                 case KeyEvent.KEYCODE_DPAD_LEFT:
-                    panRadar(-110, 0);
+                    if (isToolbarMode) {
+                        navigateToolbar(-1);
+                    } else {
+                        panRadar(-110, 0);
+                    }
                     return true;
+
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    panRadar(110, 0);
+                    if (isToolbarMode) {
+                        navigateToolbar(1);
+                    } else {
+                        panRadar(110, 0);
+                    }
                     return true;
 
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
                     if (event.getRepeatCount() == 0) {
+                        event.startTracking();
                         centerKeyDownTime = System.currentTimeMillis();
                         centerLongPressTriggered = false;
-                    } else if (!centerLongPressTriggered && (System.currentTimeMillis() - centerKeyDownTime > 650)) {
+                        mainHandler.removeCallbacks(centerLongPressRunnable);
+                        mainHandler.postDelayed(centerLongPressRunnable, 400);
+                    } else if (!centerLongPressTriggered && (event.isLongPress() || (System.currentTimeMillis() - centerKeyDownTime >= 380))) {
                         centerLongPressTriggered = true;
-                        // Long press Center Select zooms in!
-                        zoomIn();
-                        Toast.makeText(this, "Zoomed In", Toast.LENGTH_SHORT).show();
-                        return true;
+                        mainHandler.removeCallbacks(centerLongPressRunnable);
+                        if (!isToolbarMode) {
+                            enterToolbarMode();
+                        } else {
+                            exitToolbarMode();
+                        }
                     }
                     return true;
 
-                // Mute button on the Chromecast remote toggles base map style (Dark OSM <-> Satellite)
+                // Mute button on remotes that support passing KEYCODE_MUTE / KEYCODE_VOLUME_MUTE
                 case KeyEvent.KEYCODE_VOLUME_MUTE:
                 case KeyEvent.KEYCODE_MUTE:
                     toggleMapStyle();
@@ -343,6 +389,10 @@ public class MainActivity extends Activity {
                         webView.loadUrl(BUNDLED_ASSET_URL);
                         return true;
                     }
+                    if (isToolbarMode) {
+                        exitToolbarMode();
+                        return true;
+                    }
                     deselectActive();
                     long now = System.currentTimeMillis();
                     if (now - lastBackPressTime < 2000) {
@@ -354,14 +404,38 @@ public class MainActivity extends Activity {
                     return true;
             }
         } else if (action == KeyEvent.ACTION_UP) {
-            if ((keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
-                if (!centerLongPressTriggered) {
-                    selectAircraftOrTarget();
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+                mainHandler.removeCallbacks(centerLongPressRunnable);
+                if (!centerLongPressTriggered && (event.getFlags() & KeyEvent.FLAG_CANCELED_LONG_PRESS) == 0) {
+                    if (isToolbarMode) {
+                        clickToolbarFocused();
+                    } else {
+                        selectAircraftOrTarget();
+                    }
                 }
+                return true;
+            } else if (keyCode == KeyEvent.KEYCODE_BACK) {
                 return true;
             }
         }
 
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+            if (!centerLongPressTriggered) {
+                mainHandler.removeCallbacks(centerLongPressRunnable);
+                centerLongPressTriggered = true;
+                if (!isToolbarMode) {
+                    enterToolbarMode();
+                } else {
+                    exitToolbarMode();
+                }
+            }
+            return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
     }
 }

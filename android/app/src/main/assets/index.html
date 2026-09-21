@@ -205,31 +205,51 @@
       background: rgba(11, 15, 25, 0.9);
       border: 1px solid rgba(51, 65, 85, 0.85);
       padding: 6px 10px;
-      border-radius: 10px;
+      border-radius: 12px;
       display: flex;
-      gap: 8px;
+      gap: 10px;
       pointer-events: auto;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .controls-card.is-active {
+      background: rgba(15, 23, 42, 0.97);
+      border: 2px solid #00E5FF;
+      box-shadow: 0 0 28px rgba(0, 229, 255, 0.45), 0 8px 32px rgba(0, 0, 0, 0.8);
+      transform: translateY(-3px);
     }
     .ctrl-btn {
       background: #1E293B;
       border: 1px solid #334155;
       color: #E2E8F0;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.15s;
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+      outline: none;
     }
-    .ctrl-btn:hover, .ctrl-btn:focus {
+    .ctrl-btn:hover {
       background: #2563EB;
       border-color: #60A5FA;
       color: #FFFFFF;
-      outline: none;
-      box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+    }
+    .ctrl-btn.is-focused {
+      background: #00E676 !important;
+      color: #0B0F19 !important;
+      border-color: #FFFFFF !important;
+      font-weight: 800 !important;
+      transform: scale(1.14) !important;
+      box-shadow: 0 0 18px rgba(0, 230, 118, 0.85), 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+      z-index: 5;
+    }
+    .ctrl-btn.is-pressed {
+      background: #FFFFFF !important;
+      color: #0B0F19 !important;
+      transform: scale(1.05) !important;
     }
 
     /* Custom Leaflet Airplane Markers */
@@ -359,18 +379,18 @@
 
   <!-- Bottom Action & Remote Cheatsheet Bar -->
   <div class="bottom-bar">
-    <div class="instructions-card">
+    <div id="instructions-card" class="instructions-card">
       <span><span class="key-badge">D-PAD</span> Pan Map</span>
-      <span><span class="key-badge">SELECT</span> Target Aircraft</span>
-      <span><span class="key-badge">HOLD SELECT</span> Zoom In/Out</span>
-      <span><span class="key-badge">BACK</span> Deselect / Reset</span>
+      <span><span class="key-badge">SELECT</span> Target Plane</span>
+      <span><span class="key-badge">HOLD SELECT</span> Menu</span>
+      <span><span class="key-badge">BACK</span> Deselect</span>
     </div>
 
-    <div class="controls-card">
+    <div id="controls-card" class="controls-card">
       <button id="btn-zoom-in" class="ctrl-btn" tabindex="0">+ Zoom</button>
       <button id="btn-zoom-out" class="ctrl-btn" tabindex="0">− Zoom</button>
       <button id="btn-center" class="ctrl-btn" tabindex="0">🎯 Center</button>
-      <button id="btn-map-toggle" class="ctrl-btn" tabindex="0">🗺️ Map</button>
+      <button id="btn-map-toggle" class="ctrl-btn" tabindex="0">🗺️ Dark Map</button>
       <button id="btn-station" class="ctrl-btn" tabindex="0">📍 Station</button>
     </div>
   </div>
@@ -421,18 +441,21 @@
     let isSatellite = false;
     function toggleMapStyle() {
       isSatellite = !isSatellite;
+      const btn = document.getElementById('btn-map-toggle');
       if (isSatellite) {
         map.removeLayer(darkTileLayer);
         map.removeLayer(darkLabelsLayer);
         satTileLayer.addTo(map);
         document.getElementById('stat-map-mode').textContent = "SATELLITE";
         document.getElementById('stat-map-mode').style.color = "#F59E0B";
+        if (btn) btn.textContent = "🛰️ Satellite";
       } else {
         map.removeLayer(satTileLayer);
         darkTileLayer.addTo(map);
         darkLabelsLayer.addTo(map);
         document.getElementById('stat-map-mode').textContent = "DARK OSM";
         document.getElementById('stat-map-mode').style.color = "#38BDF8";
+        if (btn) btn.textContent = "🗺️ Dark Map";
       }
     }
 
@@ -675,6 +698,82 @@
       fetchLiveAdsb();
     }
 
+    // Toolbar Focus Mode & Remote Navigation
+    const toolbarButtonIds = [
+      'btn-zoom-in',
+      'btn-zoom-out',
+      'btn-center',
+      'btn-map-toggle',
+      'btn-station'
+    ];
+    let isToolbarActive = false;
+    let focusedToolbarIndex = 0;
+
+    function updateToolbarUI() {
+      const card = document.getElementById('controls-card');
+      const instructions = document.getElementById('instructions-card');
+      if (isToolbarActive) {
+        card.classList.add('is-active');
+        instructions.innerHTML = `
+          <span style="color:#00E676;font-weight:700;">● MENU ACTIVE</span>
+          <span><span class="key-badge">◀ ▶</span> Navigate</span>
+          <span><span class="key-badge">SELECT</span> Choose</span>
+          <span><span class="key-badge">BACK / ▲</span> Map Mode</span>
+        `;
+        toolbarButtonIds.forEach((id, idx) => {
+          const el = document.getElementById(id);
+          if (el) {
+            if (idx === focusedToolbarIndex) {
+              el.classList.add('is-focused');
+            } else {
+              el.classList.remove('is-focused');
+            }
+          }
+        });
+      } else {
+        card.classList.remove('is-active');
+        instructions.innerHTML = `
+          <span><span class="key-badge">D-PAD</span> Pan Map</span>
+          <span><span class="key-badge">SELECT</span> Target Plane</span>
+          <span><span class="key-badge">HOLD SELECT</span> Menu</span>
+          <span><span class="key-badge">BACK</span> Deselect</span>
+        `;
+        toolbarButtonIds.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.remove('is-focused');
+        });
+      }
+    }
+
+    function enterToolbarMode() {
+      isToolbarActive = true;
+      updateToolbarUI();
+    }
+
+    function exitToolbarMode() {
+      isToolbarActive = false;
+      updateToolbarUI();
+    }
+
+    function navigateToolbar(dir) {
+      if (!isToolbarActive) {
+        enterToolbarMode();
+        return;
+      }
+      focusedToolbarIndex = (focusedToolbarIndex + dir + toolbarButtonIds.length) % toolbarButtonIds.length;
+      updateToolbarUI();
+    }
+
+    function clickFocusedToolbarButton() {
+      if (!isToolbarActive) return;
+      const el = document.getElementById(toolbarButtonIds[focusedToolbarIndex]);
+      if (el) {
+        el.classList.add('is-pressed');
+        setTimeout(() => el.classList.remove('is-pressed'), 140);
+        el.click();
+      }
+    }
+
     // Chromecast Voice Remote Bridge Methods
     window.tvBridge = {
       pan: (dx, dy) => {
@@ -703,6 +802,18 @@
       },
       cycleStation: () => {
         cycleStation();
+      },
+      enterToolbarMode: () => {
+        enterToolbarMode();
+      },
+      exitToolbarMode: () => {
+        exitToolbarMode();
+      },
+      navigateToolbar: (dir) => {
+        navigateToolbar(dir);
+      },
+      clickFocused: () => {
+        clickFocusedToolbarButton();
       }
     };
 
@@ -712,6 +823,24 @@
     document.getElementById('btn-center').onclick = () => window.tvBridge.snapHome();
     document.getElementById('btn-map-toggle').onclick = () => toggleMapStyle();
     document.getElementById('btn-station').onclick = () => cycleStation();
+
+    toolbarButtonIds.forEach((id, idx) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('click', () => {
+          focusedToolbarIndex = idx;
+          if (isToolbarActive) updateToolbarUI();
+        });
+      }
+    });
+
+    // Keyboard Fallback (Escape returns to map mode)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (isToolbarActive) exitToolbarMode();
+        else deselectAircraft();
+      }
+    });
   </script>
 </body>
 </html>

@@ -88,4 +88,11 @@ A prebuilt debug APK is checked in at `builds/FlightMap-DeskRadar-Chromecast-deb
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+The project's own code is released under the MIT licence, copyright 2026 Aaron Arzamendi; see [LICENSE](LICENSE). Third-party material in the repository, and terms that the MIT licence does not cover:
+
+- Leaflet 1.9.4, vendored at `android/app/src/main/assets/leaflet/` and used by the web app from npm: BSD-2-Clause, copyright Vladimir Agafonkin and CloudMade. The notice stays in the file header.
+- The Gradle wrapper under `android/` (`gradlew`, `gradlew.bat`, `gradle/wrapper/`): Apache-2.0.
+- npm dependencies, each under its own licence (MIT, ISC, Apache-2.0 and BSD variants, plus MPL-2.0 for the build-time `lightningcss`). A scan of the installed tree on 2026-11-05 found no copyleft runtime dependency.
+- The Grok App Builder scaffold (`.grok/`, `scripts/`, `server/`, `public/__grok/`, `startup.sh`, `AGENTS.md`, `migrations/auth/`, and the auth, database, app-data and multiplayer helpers under `src/lib/`) was supplied by xAI's App Builder and carries no licence statement of its own, apart from three skills under `.grok/skills/` vendored from agent-sprite-forge under MIT (copyright 0x0funky). The MIT licence here is not a claim over the scaffold; whatever terms xAI attaches to App Builder output apply to those files.
+- Live data and map tiles come from adsb.lol, adsb.fi, the National Weather Service, aviationweather.gov, RainViewer, the Iowa Environmental Mesonet (NOAA NEXRAD, GOES and MRMS products), CARTO and OpenStreetMap, Esri, USGS, OpenRailwayMap, OpenSeaMap, Waymarked Trails and Caltrans QuickMap, each under its own terms of use. The map shows their attributions.
+- `attachments/` holds a saved Printables listing for "Desk radar (flightradar) V9 Final" by GeGe, a 3D-printable enclosure published under CC BY-NC-SA 4.0, and a phone screenshot. Both are reference material, not part of the software, and not covered by the MIT licence.
